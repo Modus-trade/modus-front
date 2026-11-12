@@ -31,6 +31,7 @@ import { Modal } from "./components/ui/dialog";
 import { Failure, Loading, TicketTable } from "./components/common";
 
 import { SimilarProblems, JoinedProblems } from "./components/SimilarProblems";
+import { SmartHint } from "./components/SmartHint";
 
 export default function Tickets({
   user,
@@ -349,6 +350,8 @@ export function NewTicket({
   const navigate = useNavigate();
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  // Что сотрудник выбрал сам: это подсказка уже не перезаписывает.
+  const [manual, setManual] = useState({ type: false, category: false });
   const cats = useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: async () => (await api.get("/categories")).data,
@@ -359,6 +362,7 @@ export function NewTicket({
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(ticketSchema),
@@ -397,6 +401,7 @@ export function NewTicket({
       qc.invalidateQueries();
       reset();
       setFiles([]);
+      setManual({ type: false, category: false });
       onClose();
       navigate(`/tickets/${data.id}`);
     } catch (e) {
@@ -418,10 +423,48 @@ export function NewTicket({
         Расскажите, что можно улучшить. Мы направим обращение ответственному.
       </p>
       <form onSubmit={handleSubmit(submit)} className="form-stack">
+        <label>
+          Заголовок
+          <input
+            {...register("title")}
+            placeholder="Коротко сформулируйте суть"
+          />
+          {errors.title && (
+            <small className="form-error">{errors.title.message}</small>
+          )}
+        </label>
+        <label>
+          Описание
+          <textarea
+            {...register("description")}
+            rows={4}
+            placeholder="Что произошло или что вы предлагаете изменить?"
+          />
+          {errors.description && (
+            <small className="form-error">{errors.description.message}</small>
+          )}
+        </label>
+        <SmartHint
+          title={watch("title")}
+          description={watch("description")}
+          files={files}
+          enabled={open && !busy}
+          current={{ type: watch("type"), category_id: Number(watch("category_id")) }}
+          manual={manual}
+          onApply={(h, fields) => {
+            if (fields.type) setValue("type", h.type, { shouldValidate: true });
+            if (fields.category && h.category_id)
+              setValue("category_id", h.category_id, { shouldValidate: true });
+          }}
+        />
         <div className="form-grid">
           <label>
             Тип обращения
-            <select {...register("type")}>
+            <select
+              {...register("type", {
+                onChange: () => setManual((m) => ({ ...m, type: true })),
+              })}
+            >
               {Object.entries(types).map(([v, l]) => (
                 <option key={v} value={v}>
                   {l}
@@ -431,7 +474,12 @@ export function NewTicket({
           </label>
           <label>
             Категория
-            <select {...register("category_id", { valueAsNumber: true })}>
+            <select
+              {...register("category_id", {
+                valueAsNumber: true,
+                onChange: () => setManual((m) => ({ ...m, category: true })),
+              })}
+            >
               <option value="0">Выберите категорию</option>
               {cats.data
                 ?.filter((c) => c.is_active)
@@ -454,27 +502,6 @@ export function NewTicket({
             Срок первого ответа: {category.sla_first_response_hours} ч.
           </p>
         )}
-        <label>
-          Заголовок
-          <input
-            {...register("title")}
-            placeholder="Коротко сформулируйте суть"
-          />
-          {errors.title && (
-            <small className="form-error">{errors.title.message}</small>
-          )}
-        </label>
-        <label>
-          Описание
-          <textarea
-            {...register("description")}
-            rows={4}
-            placeholder="Что произошло или что вы предлагаете изменить?"
-          />
-          {errors.description && (
-            <small className="form-error">{errors.description.message}</small>
-          )}
-        </label>
         {watch("type") === "PROBLEM" && (
           <>
             <SimilarProblems

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { TicketInsights } from "./components/TicketInsights";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -397,6 +398,20 @@ export default function TicketDetail({ user }: { user: User }) {
               )}
             </dl>
           </section>
+          {manager && (
+            <TicketInsights
+              ticketId={t.id}
+              final={["IMPLEMENTED", "REJECTED", "CLOSED"].includes(t.status)}
+              onUseReply={(text) => {
+                setBody(text);
+                focusField(".comment-form textarea");
+              }}
+              onUseResult={(text) => {
+                setResolution(text);
+                focusField("textarea[placeholder^='Решение']");
+              }}
+            />
+          )}
           <ResolutionDeadline ticket={t} user={user} />
           {manager && t.status !== "CLOSED" && (
             <form className="panel padded form-stack" onSubmit={save}>
@@ -549,4 +564,12 @@ function PhotoViewer({ id, onClose }: { id: number; onClose: () => void }) {
     </div>,
     document.body,
   );
+}
+
+function focusField(selector: string) {
+  requestAnimationFrame(() => {
+    const el = document.querySelector<HTMLTextAreaElement>(selector);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.focus({ preventScroll: true });
+  });
 }
