@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { TicketInsights } from "./components/TicketInsights";
+import { VoicePlayer, VoiceRecorder } from "./components/VoiceMessage";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -121,6 +122,20 @@ export default function TicketDetail({ user }: { user: User }) {
       toast.error(errorMessage(e));
     } finally {
       setBusy(false);
+    }
+  }
+  async function sendVoice(file: File, seconds: number) {
+    const data = new FormData();
+    data.append("file", file);
+    data.append("seconds", String(seconds));
+    data.append("is_clarification_request", String(clarify && t?.status !== "AWAITING_CLARIFICATION"));
+    try {
+      await api.post(`/tickets/${id}/voice`, data);
+      setClarify(false);
+      await qc.invalidateQueries();
+      toast.success("Голосовое отправлено");
+    } catch (e) {
+      toast.error(errorMessage(e));
     }
   }
   async function upload(file: File) {
@@ -334,7 +349,15 @@ export default function TicketDetail({ user }: { user: User }) {
                       {c.is_clarification_request && (
                         <span className="clarify-tag">Запрос уточнения</span>
                       )}
-                      <p>{c.body}</p>
+                      {c.audio_id ? (
+                        <VoicePlayer
+                          src={`/api/attachments/${c.audio_id}`}
+                          seconds={c.audio_seconds ?? null}
+                          transcript={c.transcript ?? null}
+                        />
+                      ) : (
+                        <p>{c.body}</p>
+                      )}
                     </article>
                   ))}
                   {!final ? (
@@ -367,10 +390,13 @@ export default function TicketDetail({ user }: { user: User }) {
                         ) : (
                           <span />
                         )}
-                        <Button loading={busy} disabled={busy || !body.trim()}>
-                          <Send size={15} />
-                          Отправить
-                        </Button>
+                        <div className="comment-send">
+                          {!body.trim() && <VoiceRecorder disabled={busy} onSend={sendVoice} />}
+                          <Button loading={busy} disabled={busy || !body.trim()}>
+                            <Send size={15} />
+                            Отправить
+                          </Button>
+                        </div>
                       </div>
                     </form>
                   ) : (
