@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   MessageSquare,
   History as HistoryIcon,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -74,6 +75,7 @@ export default function TicketDetail({ user }: { user: User }) {
   if (!t) return <Failure retry={() => query.refetch()} />;
   const manager = user.role !== "EMPLOYEE";
   const final = ["CLOSED", "IMPLEMENTED", "REJECTED"].includes(t.status);
+  const participant = t.viewer === "participant";
   function historyValue(field: string, value: string | null) {
     if (field === "resolution_due_at") return value ? formatDeadline(value) : "Не назначен";
     if (field === "resolution") return value || "Не указан";
@@ -164,7 +166,11 @@ export default function TicketDetail({ user }: { user: User }) {
                 Общая проблема · столкнулись {t.affected_count} {[2,3,4].includes((t.affected_count ?? 0) % 10) && ![12,13,14].includes((t.affected_count ?? 0) % 100) ? "сотрудника" : "сотрудников"}
               </p>
             )}
-            <p className="ticket-description">{t.description}</p>
+            {participant ? (
+              <p className="muted">Описание видят автор и ответственный — здесь вы следите за стадией и результатом.</p>
+            ) : (
+              <p className="ticket-description">{t.description}</p>
+            )}
             {t.proposed_solution && (
               <>
                 <h4>Предполагаемое решение</h4>
@@ -215,7 +221,7 @@ export default function TicketDetail({ user }: { user: User }) {
                 ))}
             </div>
             {photo !== null && <PhotoViewer id={photo} onClose={() => setPhoto(null)} />}
-            {!final && (
+            {!final && !participant && (
               <label className="attach-action">
                 <Paperclip size={15} />
                 Прикрепить файл
@@ -232,6 +238,16 @@ export default function TicketDetail({ user }: { user: User }) {
               </label>
             )}
           </section>
+          {participant ? (
+            <section className="panel padded participant-note">
+              <Users size={18} />
+              <p>
+                Вы присоединились к этой общей проблеме. Здесь видно стадию и итоговый результат,
+                уведомления о них придут вам автоматически. Переписка доступна автору и ответственному.
+              </p>
+            </section>
+          ) : (
+          <>
           <ResolutionReview ticket={t} user={user} />
           <section className="panel">
             <AnimatedTabs value={tab} label="Раздел обращения">
@@ -367,16 +383,22 @@ export default function TicketDetail({ user }: { user: User }) {
               )}
             </div>
           </section>
+          </>
+          )}
         </div>
         <aside className="detail-side">
           <section className="panel padded">
             <h3>Детали обращения</h3>
             <dl>
-              <dt>Автор</dt>
-              <dd>
-                {t.author_name}
-                <small>{t.department}</small>
-              </dd>
+              {!participant && (
+                <>
+                  <dt>Автор</dt>
+                  <dd>
+                    {t.author_name}
+                    <small>{t.department}</small>
+                  </dd>
+                </>
+              )}
               <dt>Ответственный</dt>
               <dd>{t.assignee_name || "Не назначен"}</dd>
               <dt>Приоритет</dt>

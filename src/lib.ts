@@ -84,6 +84,8 @@ export interface Category {
 }
 export interface Ticket {
   is_shared: boolean;
+  /** participant — присоединился к общей проблеме: только просмотр */
+  viewer?: "member" | "participant";
   affected_count: number;
   id: number;
   number: string;
